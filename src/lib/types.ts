@@ -1,5 +1,5 @@
 export interface TimelineEntry {
-  type: "male" | "female";
+  type: "male" | "female" | "image";
   content: string;
   start: number;
   end: number;

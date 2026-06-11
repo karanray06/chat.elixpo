@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { listConversations, deleteConversation } from "@/lib/chat/db";
-
-const DUMMY_USER_ID = "user_123"; // TODO: Replace with auth
+import { DUMMY_USER_ID } from "@/lib/chat/constants";
 
 export async function GET(req: NextRequest) {
   try {

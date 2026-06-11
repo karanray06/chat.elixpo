@@ -2,10 +2,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { POLLINATIONS_API_KEY, POLLINATIONS_BASE_URL, DEFAULT_MODEL } from "@/lib/pollinations";
 import { saveMessage, createConversation, getMessages } from "@/lib/chat/db";
+import { DUMMY_USER_ID } from "@/lib/chat/constants";
 import { NextRequest } from "next/server";
-
-// Hardcoded user ID for now since auth integration is pending
-const DUMMY_USER_ID = "user_123";
 
 const pollinations = createOpenAI({
   apiKey: POLLINATIONS_API_KEY,
