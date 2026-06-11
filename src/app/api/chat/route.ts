@@ -75,4 +75,3 @@ export async function GET(req: NextRequest) {
     headers: { "Content-Type": "application/json" },
   });
 }
-

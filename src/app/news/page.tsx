@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import Link from "next/link";
-import type { NewsItem, TimelineEntry } from "@/lib/types";
+import type { NewsItem } from "@/lib/types";
 import NewsSkeleton from "@/components/skeletons/NewsSkeleton";
+import { useSeekBar, formatTime, faviconUrl as buildFaviconUrl } from "@/lib/hooks/use-seek-bar";
+import { useSubtitles } from "@/lib/hooks/use-subtitles";
+import BackButton from "@/components/media/BackButton";
+import MediaOverlay from "@/components/media/MediaOverlay";
+import { PlayIcon, PauseIcon } from "@/components/media/PlayPauseIcon";
 
 const CATEGORY_COLORS: Record<string, string> = {
   tech: "#f59e0b", science: "#10b981", sports: "#3b82f6", health: "#ef4444",
@@ -20,13 +24,8 @@ export default function NewsPage() {
   const [gradientColor, setGradientColor] = useState("#1a1a2e");
   const [showCaptions, setShowCaptions] = useState(true);
 
-  // Subtitle state
-  interface SubLine { text: string; speaker: "male" | "female"; start: number; end: number; }
-  const [activeSubLine, setActiveSubLine] = useState<SubLine | null>(null);
-
   const audioRefs = useRef<HTMLAudioElement[]>([]);
   const playTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const seekBarRef = useRef<HTMLDivElement>(null);
 
   const headline = `Elixpo Daily — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 
@@ -72,34 +71,8 @@ export default function NewsPage() {
     if (!audio) return;
 
     const onTimeUpdate = () => {
-      const t = audio.currentTime;
-      setCurrentTime(t);
+      setCurrentTime(audio.currentTime);
       setDuration(audio.duration || 0);
-
-      // Find active timeline entry, then compute which chunk within it
-      const tl: TimelineEntry[] = items[currentIdx]?.timeline || [];
-      const entry = tl.find((e) => t >= e.start && t < e.end);
-      if (!entry) { setActiveSubLine(null); return; }
-
-      // Split entry into ~50 char chunks
-      const words = entry.content.split(/\s+/);
-      const chunks: string[] = [];
-      let cur = "";
-      for (const w of words) {
-        if (cur.length + w.length + 1 > 50 && cur) { chunks.push(cur); cur = w; }
-        else cur = cur ? cur + " " + w : w;
-      }
-      if (cur) chunks.push(cur);
-
-      // Pick chunk based on time position within the entry
-      const progress = (t - entry.start) / (entry.end - entry.start);
-      const chunkIdx = Math.min(Math.floor(progress * chunks.length), chunks.length - 1);
-
-      setActiveSubLine((prev) => {
-        const text = chunks[chunkIdx];
-        if (prev?.text === text) return prev;
-        return { text, speaker: entry.type as "male" | "female", start: entry.start, end: entry.end };
-      });
     };
     const onEnded = () => {
       if (currentIdx < items.length - 1) {
@@ -119,8 +92,6 @@ export default function NewsPage() {
 
     updateGradient(items[currentIdx]);
 
-    setActiveSubLine(null);
-
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
@@ -128,6 +99,10 @@ export default function NewsPage() {
       audio.removeEventListener("pause", onPause);
     };
   }, [currentIdx, items, updateGradient]);
+
+  const getAudio = useCallback(() => audioRefs.current[currentIdx] ?? null, [currentIdx]);
+  const { seekBarRef, onSeekDown, pct } = useSeekBar({ getAudio, duration, currentTime });
+  const activeSubLine = useSubtitles(items[currentIdx]?.timeline || [], currentTime);
 
   const togglePlay = () => { const a = audioRefs.current[currentIdx]; if (a?.src) a.paused ? a.play() : a.pause(); };
   const switchTrack = (idx: number) => {
@@ -138,45 +113,13 @@ export default function NewsPage() {
     const next = audioRefs.current[idx];
     if (next?.src) { next.currentTime = 0; playTimeoutRef.current = setTimeout(() => next.play(), 600); }
   };
-  const seekFromX = (clientX: number) => {
-    if (!seekBarRef.current) return;
-    const r = seekBarRef.current.getBoundingClientRect();
-    const a = audioRefs.current[currentIdx];
-    if (a?.duration) a.currentTime = (Math.max(0, Math.min(clientX - r.left, r.width)) / r.width) * a.duration;
-  };
-  const isDragging = useRef(false);
-  const onSeekDown = (e: React.MouseEvent | React.TouchEvent) => {
-    isDragging.current = true;
-    const x = "touches" in e ? e.touches[0].clientX : e.clientX;
-    seekFromX(x);
-  };
-  useEffect(() => {
-    const onMove = (e: MouseEvent | TouchEvent) => {
-      if (!isDragging.current) return;
-      const x = "touches" in e ? e.touches[0].clientX : (e as MouseEvent).clientX;
-      seekFromX(x);
-    };
-    const onUp = () => { isDragging.current = false; };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchmove", onMove);
-    window.addEventListener("touchend", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      window.removeEventListener("touchmove", onMove);
-      window.removeEventListener("touchend", onUp);
-    };
-  });
-  const fmt = (s: number) => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`; };
 
-  const pct = duration > 0 ? (currentTime / duration) * 100 : 0;
   const currentItem = items[currentIdx];
   const categoryColor = CATEGORY_COLORS[currentItem?.category] || "#f59e0b";
   const bannerImage = currentItem?.image_url || "";
   const thumbnailImage = currentItem?.thumbnail_url || "";
   const sourceDomain = (() => { try { return new URL(currentItem?.source_link || "").hostname.replace(/^www\./, ""); } catch { return ""; } })();
-  const faviconUrl = sourceDomain ? `https://www.google.com/s2/favicons?domain=${sourceDomain}&sz=64` : "";
+  const favIcon = buildFaviconUrl(sourceDomain);
 
   if (loading) {
     return <NewsSkeleton />;
@@ -184,21 +127,8 @@ export default function NewsPage() {
 
   return (
     <section className="relative h-screen w-screen overflow-hidden bg-black">
-      {/* Back */}
-      <Link href="/" className="fixed top-4 left-4 z-50 w-9 h-9 rounded-full bg-black/30 backdrop-blur-sm flex items-center justify-center hover:bg-black/50 transition-colors">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-      </Link>
-
-      {/* ═══ FULL-SCREEN BACKGROUND — banner image ═══ */}
-      {bannerImage && (
-        <div className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-700" style={{ backgroundImage: `url(${bannerImage})` }} />
-      )}
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 z-[1]" style={{
-        background: `linear-gradient(to bottom, transparent 0%, ${gradientColor}33 20%, ${gradientColor}aa 45%, ${gradientColor}ee 65%, ${gradientColor} 85%)`
-      }} />
-      {/* Vignette */}
-      <div className="absolute inset-0 z-[1]" style={{ background: "radial-gradient(ellipse at center 30%, transparent 40%, rgba(0,0,0,0.4) 100%)" }} />
+      <BackButton />
+      <MediaOverlay imageUrl={bannerImage} gradientColor={gradientColor} />
 
       {/* ═══ CONTENT ═══ */}
       <div className="relative z-10 h-full flex flex-col">
@@ -248,9 +178,9 @@ export default function NewsPage() {
               <div className="flex-1 min-w-0">
                 <h2 className="text-sm font-bold text-white/90 truncate">{currentItem?.topic || headline}</h2>
                 <div className="flex items-center gap-1.5">
-                  {faviconUrl && sourceDomain ? (
+                  {favIcon && sourceDomain ? (
                     <a href={currentItem?.source_link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 group">
-                      <img src={faviconUrl} alt="" width={12} height={12} className="rounded-sm opacity-40 group-hover:opacity-70" />
+                      <img src={favIcon} alt="" width={12} height={12} className="rounded-sm opacity-40 group-hover:opacity-70" />
                       <span className="text-[10px] text-white/30 group-hover:text-white/50 uppercase tracking-wider">{sourceDomain}</span>
                     </a>
                   ) : <span className="text-[10px] text-white/20 italic">Elixpo Daily</span>}
@@ -291,12 +221,12 @@ export default function NewsPage() {
 
             {/* Main seek bar */}
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-[10px] text-white/30 font-mono w-9 text-right">{fmt(currentTime)}</span>
+              <span className="text-[10px] text-white/30 font-mono w-9 text-right">{formatTime(currentTime)}</span>
               <div ref={seekBarRef} onMouseDown={onSeekDown} onTouchStart={onSeekDown} className="flex-1 h-1 rounded-full cursor-pointer relative group hover:h-1.5 transition-all" style={{ background: "rgba(255,255,255,0.08)" }}>
                 <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{ width: `${pct}%`, background: categoryColor }} />
                 <div className="absolute w-3 h-3 rounded-full bg-white -top-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" style={{ left: `calc(${pct}% - 6px)` }} />
               </div>
-              <span className="text-[10px] text-white/30 font-mono w-9">{fmt(duration)}</span>
+              <span className="text-[10px] text-white/30 font-mono w-9">{formatTime(duration)}</span>
             </div>
 
             {/* Controls */}
@@ -306,11 +236,7 @@ export default function NewsPage() {
               </button>
 
               <button onClick={togglePlay} className="w-14 h-14 rounded-full bg-white flex items-center justify-center hover:scale-105 active:scale-95 transition-all cursor-pointer shadow-lg shadow-white/10">
-                {isPlaying ? (
-                  <svg viewBox="0 0 32 32" className="w-6 h-6"><path d="M7.25 29C5.45507 29 4 27.5449 4 25.75V7.25C4 5.45507 5.45507 4 7.25 4H10.75C12.5449 4 14 5.45507 14 7.25V25.75C14 27.5449 12.5449 29 10.75 29H7.25ZM21.25 29C19.4551 29 18 27.5449 18 25.75V7.25C18 5.45507 19.4551 4 21.25 4H24.75C26.5449 4 28 5.45507 28 7.25V25.75C28 27.5449 26.5449 29 24.75 29H21.25Z" fill="#111" /></svg>
-                ) : (
-                  <svg viewBox="0 0 32 32" className="w-6 h-6 ml-0.5"><path d="M12.2246 27.5373C9.89137 28.8585 7 27.173 7 24.4917V7.50044C7 4.81864 9.89234 3.1332 12.2256 4.45537L27.2233 12.9542C29.5897 14.2951 29.5891 17.7047 27.2223 19.0449L12.2246 27.5373Z" fill="#111" /></svg>
-                )}
+                {isPlaying ? <PauseIcon /> : <PlayIcon />}
               </button>
 
               <button onClick={() => switchTrack(currentIdx + 1)} disabled={currentIdx === items.length - 1} className="text-white/40 hover:text-white/70 active:scale-90 transition-all cursor-pointer p-2 rounded-full hover:bg-white/[0.06] disabled:opacity-20">
