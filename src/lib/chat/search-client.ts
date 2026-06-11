@@ -133,7 +133,10 @@ export async function createSession(): Promise<string> {
  */
 export async function getSession(sessionId: string): Promise<ChatMessage[]> {
   const res = await fetch(`${PROXY}?action=get_session&session_id=${sessionId}`);
-  if (!res.ok) return [];
+  if (!res.ok) {
+    console.error(`Failed to load session ${sessionId}: ${res.status}`);
+    return [];
+  }
   const data: any = await res.json();
   return data.messages || [];
 }
@@ -142,5 +145,9 @@ export async function getSession(sessionId: string): Promise<ChatMessage[]> {
  * Delete a session.
  */
 export async function deleteSession(sessionId: string): Promise<void> {
-  await fetch(`${PROXY}?session_id=${sessionId}`, { method: "DELETE" });
+  const res = await fetch(`${PROXY}?session_id=${sessionId}`, { method: "DELETE" });
+  if (!res.ok) {
+    const err: any = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `Delete session failed: ${res.status}`);
+  }
 }

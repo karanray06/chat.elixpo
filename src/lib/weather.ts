@@ -39,6 +39,9 @@ export async function getStructuredWeather(
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&daily=temperature_2m_max,temperature_2m_min,weathercode&current_weather=true&timezone=auto`;
     const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`Weather API returned ${res.status}`);
+    }
     const data = await res.json();
 
     const current = data.current_weather;
@@ -103,6 +106,11 @@ export async function generateAISummary(
       seed: 42,
     }),
   });
+
+  if (!res.ok) {
+    console.error(`AI summary request failed: ${res.status}`);
+    return "Weather data is available, but the summary could not be generated.";
+  }
 
   const result = await res.json();
   return result.choices?.[0]?.message?.content || "No summary available.";
