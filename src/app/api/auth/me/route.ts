@@ -4,8 +4,8 @@ import { parseSessionCookie, getUserInfo, refreshTokens, setSessionCookie } from
 export const runtime = "edge";
 
 export async function GET(request: NextRequest) {
-  // Dev mode: return a mock user so the UI works without real SSO
-  if (process.env.DEV_SKIP_AUTH === "true") {
+  // Dev mode: return a mock user so the UI works without real SSO (never in production)
+  if (process.env.NODE_ENV !== "production" && process.env.DEV_SKIP_AUTH === "true") {
     return NextResponse.json({
       user: {
         id: "dev-user-local",

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSafeUrl } from "@/lib/url-validation";
 
 export const runtime = "edge";
 
@@ -8,6 +9,10 @@ export async function GET(request: NextRequest) {
 
   if (!imageUrl) {
     return NextResponse.json({ error: "Missing imageUrl query parameter" }, { status: 400 });
+  }
+
+  if (!isSafeUrl(imageUrl)) {
+    return NextResponse.json({ error: "Invalid image URL" }, { status: 400 });
   }
 
   try {

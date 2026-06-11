@@ -11,8 +11,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // --- DEV MODE BYPASS ---
-  if (process.env.DEV_SKIP_AUTH === 'true') {
+  // --- DEV MODE BYPASS (never in production) ---
+  if (process.env.NODE_ENV !== 'production' && process.env.DEV_SKIP_AUTH === 'true') {
     const response = NextResponse.next();
     response.headers.set('x-user-id', 'dev-user-local');
     return response;
