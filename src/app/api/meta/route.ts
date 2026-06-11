@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
       title: titleMatch?.[1]?.trim() || "",
       description: descMatch?.[1]?.trim() || "",
     });
-  } catch {
-    return NextResponse.json({ title: "", description: "" });
+  } catch (error) {
+    console.error("Meta fetch error:", error);
+    return NextResponse.json({ title: "", description: "" }, { status: 502 });
   }
 }

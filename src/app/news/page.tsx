@@ -17,6 +17,7 @@ export default function NewsPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [gradientColor, setGradientColor] = useState("#1a1a2e");
   const [showCaptions, setShowCaptions] = useState(true);
 
@@ -31,7 +32,10 @@ export default function NewsPage() {
   const headline = `Elixpo Daily — ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
 
   useEffect(() => {
-    fetch("/api/news").then((r) => r.json()).then((data: any) => {
+    fetch("/api/news").then((r) => {
+      if (!r.ok) throw new Error(`Failed to load news: ${r.status}`);
+      return r.json();
+    }).then((data: any) => {
       if (!data || !data.items) {
         setItems([]);
         setLoading(false);
@@ -46,7 +50,11 @@ export default function NewsPage() {
         return audio;
       });
       setLoading(false);
-    }).catch(console.error);
+    }).catch((err) => {
+      console.error("News fetch error:", err);
+      setError("Could not load today's news. Please try again later.");
+      setLoading(false);
+    });
 
     return () => {
       audioRefs.current.forEach((a) => { a.pause(); a.src = ""; });
@@ -60,9 +68,9 @@ export default function NewsPage() {
       setGradientColor(item.gradient_color);
     } else if (item.image_url) {
       fetch(`/api/dominant-color?imageUrl=${encodeURIComponent(item.image_url)}`)
-        .then((r) => r.json())
-        .then((d: any) => setGradientColor(d.color))
-        .catch(() => {});
+        .then((r) => r.ok ? r.json() : null)
+        .then((d: any) => { if (d?.color) setGradientColor(d.color); })
+        .catch((err) => console.error("Dominant color fetch failed:", err));
     }
   }, []);
 
@@ -180,6 +188,17 @@ export default function NewsPage() {
 
   if (loading) {
     return <NewsSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <p className="text-lg text-red-400">{error}</p>
+          <button onClick={() => window.location.reload()} className="mt-4 rounded bg-white/10 px-4 py-2 hover:bg-white/20">Retry</button>
+        </div>
+      </div>
+    );
   }
 
   return (

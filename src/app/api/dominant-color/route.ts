@@ -41,6 +41,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ color: `rgb(${r}, ${g}, ${b})` });
   } catch (error) {
     console.error("Error processing image:", error);
-    return NextResponse.json({ color: "rgb(30, 37, 56)" });
+    return NextResponse.json({ color: "rgb(30, 37, 56)", fallback: true }, { status: 502 });
   }
 }

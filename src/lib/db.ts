@@ -16,7 +16,14 @@ export async function getTodaysNews(): Promise<News | null> {
     .first<{ data: string }>();
 
   if (!statsRow) return null;
-  const stats: NewsDetails = JSON.parse(statsRow.data);
+
+  let stats: NewsDetails;
+  try {
+    stats = JSON.parse(statsRow.data);
+  } catch (err) {
+    console.error("Malformed news stats JSON:", err);
+    return null;
+  }
 
   const newsRow = await db
     .prepare("SELECT id, items FROM news WHERE id = ?")
@@ -24,7 +31,13 @@ export async function getTodaysNews(): Promise<News | null> {
     .first<{ id: string; items: string }>();
 
   if (!newsRow) return null;
-  return { id: newsRow.id, items: JSON.parse(newsRow.items) };
+
+  try {
+    return { id: newsRow.id, items: JSON.parse(newsRow.items) };
+  } catch (err) {
+    console.error("Malformed news items JSON:", err);
+    return null;
+  }
 }
 
 export async function getTodaysNewsDetails(): Promise<NewsDetails | null> {
@@ -36,7 +49,13 @@ export async function getTodaysNewsDetails(): Promise<NewsDetails | null> {
     .first<{ data: string }>();
 
   if (!row) return null;
-  return JSON.parse(row.data);
+
+  try {
+    return JSON.parse(row.data);
+  } catch (err) {
+    console.error("Malformed news details JSON:", err);
+    return null;
+  }
 }
 
 export async function getTodaysPodcast(): Promise<Podcast | null> {
@@ -48,7 +67,14 @@ export async function getTodaysPodcast(): Promise<Podcast | null> {
     .first<{ data: string }>();
 
   if (!statsRow) return null;
-  const stats: PodcastDetails = JSON.parse(statsRow.data);
+
+  let stats: PodcastDetails;
+  try {
+    stats = JSON.parse(statsRow.data);
+  } catch (err) {
+    console.error("Malformed podcast stats JSON:", err);
+    return null;
+  }
 
   const podcastRow = await db
     .prepare(
@@ -69,5 +95,11 @@ export async function getTodaysPodcastDetails(): Promise<PodcastDetails | null> 
     .first<{ data: string }>();
 
   if (!row) return null;
-  return JSON.parse(row.data);
+
+  try {
+    return JSON.parse(row.data);
+  } catch (err) {
+    console.error("Malformed podcast details JSON:", err);
+    return null;
+  }
 }

@@ -67,9 +67,15 @@ export async function GET(req: NextRequest) {
   const id = req.nextUrl.searchParams.get("id");
   if (!id) return new Response("Missing id", { status: 400 });
 
-  const messages = await getMessages(id);
-  return new Response(JSON.stringify(messages), {
-    headers: { "Content-Type": "application/json" },
-  });
+  try {
+    const messages = await getMessages(id);
+    return new Response(JSON.stringify(messages), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: unknown) {
+    console.error("Failed to load messages:", error);
+    const message = error instanceof Error ? error.message : "Failed to load messages";
+    return new Response(JSON.stringify({ error: message }), { status: 500 });
+  }
 }
 

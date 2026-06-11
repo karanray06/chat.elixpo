@@ -9,12 +9,21 @@ async function getKV(): Promise<KVNamespace> {
 }
 
 export async function getCached<T>(key: string): Promise<T | null> {
-  const kv = await getKV();
-  const value = await kv.get(key, "json");
-  return value as T | null;
+  try {
+    const kv = await getKV();
+    const value = await kv.get(key, "json");
+    return value as T | null;
+  } catch (err) {
+    console.error(`KV read error for key "${key}":`, err);
+    return null;
+  }
 }
 
 export async function setCache<T>(key: string, value: T, ttl = CACHE_TTL): Promise<void> {
-  const kv = await getKV();
-  await kv.put(key, JSON.stringify(value), { expirationTtl: ttl });
+  try {
+    const kv = await getKV();
+    await kv.put(key, JSON.stringify(value), { expirationTtl: ttl });
+  } catch (err) {
+    console.error(`KV write error for key "${key}":`, err);
+  }
 }

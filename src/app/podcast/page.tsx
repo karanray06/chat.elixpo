@@ -30,6 +30,7 @@ export default function PodcastPage() {
   const [speed, setSpeed] = useState(1);
   const [loaded, setLoaded] = useState(false);
   const [audioError, setAudioError] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [showCaptions, setShowCaptions] = useState(true);
 
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
@@ -47,13 +48,16 @@ export default function PodcastPage() {
   const displayImage = activeCarouselUrl || bannerUrl || thumbnailUrl;
 
   useEffect(() => {
-    fetch("/api/podcast").then((r) => r.json()).then((data: any) => {
+    fetch("/api/podcast").then((r) => {
+      if (!r.ok) throw new Error(`Failed to load podcast: ${r.status}`);
+      return r.json();
+    }).then((data: any) => {
       if (data.error) return;
       setPodcastName(data.podcast_name);
       setBannerUrl(data.podcast_banner_url || "");
       setThumbnailUrl(data.podcast_thumbnail_url || "");
       setSourceLink(data.topic_source || "");
-      try { setSourceDomain(new URL(data.topic_source).hostname.replace(/^www\./, "")); } catch { /* */ }
+      try { setSourceDomain(new URL(data.topic_source).hostname.replace(/^www\./, "")); } catch { /* invalid URL */ }
       if (data.podcast_audio_url) {
         const audio = new Audio(data.podcast_audio_url);
         audio.preload = "metadata";
@@ -66,14 +70,24 @@ export default function PodcastPage() {
         audioRef.current = audio;
       } else { setAudioError(true); }
       setLoaded(true);
-    }).catch(console.error);
+    }).catch((err) => {
+      console.error("Podcast fetch error:", err);
+      setFetchError("Could not load today's podcast. Please try again later.");
+      setLoaded(true);
+    });
 
-    fetch("/api/podcast-details").then((r) => r.json()).then((d: any) => {
+    fetch("/api/podcast-details").then((r) => {
+      if (!r.ok) throw new Error(`Failed to load podcast details: ${r.status}`);
+      return r.json();
+    }).then((d: any) => {
       if (d.gradientColor) setGradientColor(d.gradientColor);
       if (d.carouselImages) setCarouselImages(d.carouselImages);
       if (d.timeline?.length) setTimeline(d.timeline);
-      else if (d.timelineUrl) fetch(d.timelineUrl).then((r) => r.json()).then((timelineData: any) => setTimeline(timelineData)).catch(() => {});
-    }).catch(() => {});
+      else if (d.timelineUrl) fetch(d.timelineUrl).then((r) => {
+        if (!r.ok) throw new Error(`Timeline fetch failed: ${r.status}`);
+        return r.json();
+      }).then((timelineData: any) => setTimeline(timelineData)).catch((err) => console.error("Timeline fetch failed:", err));
+    }).catch((err) => console.error("Podcast details error:", err));
 
     return () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; } };
   }, []);
@@ -160,6 +174,17 @@ export default function PodcastPage() {
 
   if (!loaded) {
     return <PodcastSkeleton />;
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <p className="text-lg text-red-400">{fetchError}</p>
+          <button onClick={() => window.location.reload()} className="mt-4 rounded bg-white/10 px-4 py-2 hover:bg-white/20">Retry</button>
+        </div>
+      </div>
+    );
   }
 
   return (

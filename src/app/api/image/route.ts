@@ -10,22 +10,28 @@ export async function GET(request: NextRequest) {
 
   const IMAGE_KEY = process.env.ELIXSEARCH_API_KEY || "";
 
-  const upstream = await fetch(
-    `https://search.elixpo.com/api/image/${id}?key=${IMAGE_KEY}`,
-    { signal: AbortSignal.timeout(15000) }
-  );
+  try {
+    const upstream = await fetch(
+      `https://search.elixpo.com/api/image/${id}?key=${IMAGE_KEY}`,
+      { signal: AbortSignal.timeout(15000) }
+    );
 
-  if (!upstream.ok) {
-    return new Response("Image not found", { status: upstream.status });
+    if (!upstream.ok) {
+      return new Response("Image not found", { status: upstream.status });
+    }
+
+    const contentType = upstream.headers.get("content-type") || "image/png";
+    const body = upstream.body;
+
+    return new Response(body, {
+      headers: {
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=86400",
+      },
+    });
+  } catch (error) {
+    console.error("Image proxy error:", error);
+    const status = error instanceof DOMException && error.name === "TimeoutError" ? 504 : 502;
+    return new Response("Failed to fetch image", { status });
   }
-
-  const contentType = upstream.headers.get("content-type") || "image/png";
-  const body = upstream.body;
-
-  return new Response(body, {
-    headers: {
-      "Content-Type": contentType,
-      "Cache-Control": "public, max-age=86400",
-    },
-  });
 }
