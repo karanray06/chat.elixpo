@@ -61,10 +61,14 @@ export default function ChatPage() {
     if (id !== "new") {
       setIsLoadingHistory(true);
       fetch(`/api/chat?id=${id}`)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error(`Chat history fetch failed: ${res.status}`);
+          return res.json();
+        })
         .then(data => {
           if (Array.isArray(data)) setMessages(data);
         })
+        .catch(err => console.error("Failed to load chat history:", err))
         .finally(() => setIsLoadingHistory(false));
     }
   }, [id, setMessages]);

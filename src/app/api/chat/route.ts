@@ -64,12 +64,25 @@ Be helpful, concise, and do not use emojis unless specifically requested. Keep y
 }
 
 export async function GET(req: NextRequest) {
-  const id = req.nextUrl.searchParams.get("id");
-  if (!id) return new Response("Missing id", { status: 400 });
+  try {
+    const id = req.nextUrl.searchParams.get("id");
+    if (!id) {
+      return new Response(JSON.stringify({ error: "Missing id" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
-  const messages = await getMessages(id);
-  return new Response(JSON.stringify(messages), {
-    headers: { "Content-Type": "application/json" },
-  });
+    const messages = await getMessages(id);
+    return new Response(JSON.stringify(messages), {
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error: any) {
+    console.error("GET /api/chat error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }
 
