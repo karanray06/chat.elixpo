@@ -15,7 +15,8 @@ export async function POST(req: NextRequest) {
     return new Response(JSON.stringify({ url: imageUrl }), {
       headers: { "Content-Type": "application/json" },
     });
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+  } catch (error: unknown) {
+    console.error("Image generation error:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
   }
 }

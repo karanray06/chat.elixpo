@@ -101,7 +101,7 @@ const FIFTEEN_DAYS = 15 * 24 * 60 * 60; // 1,296,000 seconds
 
 export function setSessionCookie(accessToken: string, refreshToken: string, _expiresIn?: number) {
   const value = JSON.stringify({ accessToken, refreshToken });
-  return `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${FIFTEEN_DAYS}`;
+  return `${COOKIE_NAME}=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${FIFTEEN_DAYS}`;
 }
 
 export function parseSessionCookie(cookieHeader: string | null): { accessToken: string; refreshToken: string } | null {

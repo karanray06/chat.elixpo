@@ -2,8 +2,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { POLLINATIONS_API_KEY, POLLINATIONS_BASE_URL, DEFAULT_MODEL } from "@/lib/pollinations";
 import { saveMessage, createConversation, getMessages } from "@/lib/chat/db";
-import { DUMMY_USER_ID } from "@/lib/chat/constants";
 import { NextRequest } from "next/server";
+import { getUserId } from "@/lib/get-user-id";
 
 const pollinations = createOpenAI({
   apiKey: POLLINATIONS_API_KEY,
@@ -12,14 +12,19 @@ const pollinations = createOpenAI({
 
 export const maxDuration = 60;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+    }
+
     const { messages, model = DEFAULT_MODEL, id: conversationId } = (await req.json()) as any;
 
     let currentConversationId = conversationId;
 
     if (!currentConversationId) {
-      currentConversationId = await createConversation(DUMMY_USER_ID, "New Chat", model);
+      currentConversationId = await createConversation(userId, "New Chat", model);
     }
 
     const lastMessage = messages[messages.length - 1];
@@ -55,9 +60,9 @@ Be helpful, concise, and do not use emojis unless specifically requested. Keep y
         "x-conversation-id": currentConversationId,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("API Chat Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
   }
 }
 
@@ -70,4 +75,3 @@ export async function GET(req: NextRequest) {
     headers: { "Content-Type": "application/json" },
   });
 }
-
