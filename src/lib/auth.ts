@@ -40,7 +40,7 @@ export async function exchangeCode(code: string, redirectUri: string) {
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
+    const err = (await res.json().catch(() => ({}))) as Record<string, string>;
     throw new Error(err.error || `Token exchange failed: ${res.status}`);
   }
 
